@@ -5,13 +5,13 @@ import os
 
 app = Flask(__name__)
 
-# Load model and scaler
 model = joblib.load("knn_fatigue_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
 @app.route("/", methods=["GET", "POST"])
 def home():
     prediction = ""
+    status_class = ""
 
     if request.method == "POST":
         values = [
@@ -32,110 +32,144 @@ def home():
 
         if result == 0:
             prediction = "ALERT – Driver is attentive"
+            status_class = "safe"
         elif result == 1:
             prediction = "DROWSY – Driver needs rest"
+            status_class = "warning"
         else:
             prediction = "MICROSLEEP – Immediate action required"
+            status_class = "danger"
 
     return f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Driver Fatigue Detection</title>
-        <style>
-            * {{
-                box-sizing: border-box;
-            }}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Driver Fatigue Detection</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-            body {{
-                margin: 0;
-                min-height: 100vh;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background-color: #f6f8fc;
-                font-family: 'Segoe UI', Tahoma, sans-serif;
-            }}
+    <style>
+        body {{
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(135deg, #eef2ff, #fdfbff);
+            font-family: 'Segoe UI', sans-serif;
+        }}
 
-            .container {{
-                background: #ffffff;
-                padding: 36px 32px;
-                width: 440px;
-                border-radius: 14px;
-                box-shadow: 0 8px 20px rgba(0,0,0,0.08);
-            }}
+        .card {{
+            width: 420px;
+            background: rgba(255,255,255,0.85);
+            backdrop-filter: blur(12px);
+            padding: 36px;
+            border-radius: 18px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+        }}
 
-            h2 {{
-                text-align: center;
-                color: #3a3a3a;
-                margin-bottom: 28px;
-            }}
+        h2 {{
+            text-align: center;
+            margin-bottom: 28px;
+            color: #2e2e2e;
+        }}
 
-            .form-group {{
-                margin-bottom: 16px;
-            }}
+        .field {{
+            margin-bottom: 14px;
+        }}
 
-            label {{
-                display: block;
-                margin-bottom: 6px;
-                font-size: 14px;
-                color: #555;
-            }}
+        input {{
+            width: 100%;
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid #d6d6d6;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }}
 
-            input {{
-                width: 100%;
-                padding: 10px 12px;
-                border-radius: 8px;
-                border: 1px solid #dcdcdc;
-                font-size: 14px;
-            }}
+        input:focus {{
+            outline: none;
+            border-color: #7b8cff;
+            box-shadow: 0 0 0 3px rgba(123,140,255,0.2);
+        }}
 
-            button {{
-                width: 100%;
-                padding: 12px;
-                margin-top: 10px;
-                background-color: #b8c4f0;
-                border: none;
-                border-radius: 10px;
-                font-size: 15px;
-                font-weight: 600;
-                cursor: pointer;
-            }}
+        button {{
+            width: 100%;
+            margin-top: 16px;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            background: linear-gradient(135deg, #7b8cff, #a2b2ff);
+            color: #fff;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }}
 
-            .result {{
-                margin-top: 20px;
-                text-align: center;
-                font-size: 16px;
-                font-weight: 600;
-                color: #333;
-            }}
-        </style>
-    </head>
+        button:hover {{
+            transform: translateY(-2px);
+        }}
 
-    <body>
-        <div class="container">
-            <h2>Driver Fatigue Detection System</h2>
+        .result {{
+            margin-top: 22px;
+            padding: 14px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 15px;
+        }}
 
-            <form method="POST">
-                <input name="avg_EAR" placeholder="Average EAR" required>
-                <input name="blink_rate" placeholder="Blink Rate" required>
-                <input name="avg_blink_duration" placeholder="Avg Blink Duration" required>
-                <input name="eye_closure_percentage" placeholder="Eye Closure %" required>
-                <input name="long_eye_closure_count" placeholder="Long Eye Closure Count" required>
-                <input name="head_nod_count" placeholder="Head Nod Count" required>
-                <input name="head_pitch_variance" placeholder="Head Pitch Variance" required>
-                <input name="perclos_30s" placeholder="PERCLOS (30s)" required>
-                <input name="max_eye_closure_duration" placeholder="Max Eye Closure Duration" required>
-                <input name="head_drop_events" placeholder="Head Drop Events" required>
+        .safe {{
+            background: #e7f8ee;
+            color: #1b7f45;
+        }}
 
-                <button type="submit">Predict Driver State</button>
-            </form>
+        .warning {{
+            background: #fff5db;
+            color: #9c6b00;
+        }}
 
-            <div class="result">{prediction}</div>
-        </div>
-    </body>
-    </html>
-    """
+        .danger {{
+            background: #ffe3e3;
+            color: #b40000;
+        }}
+
+        footer {{
+            margin-top: 18px;
+            text-align: center;
+            font-size: 12px;
+            color: #777;
+        }}
+    </style>
+</head>
+
+<body>
+    <div class="card">
+        <h2>🚗 Driver Fatigue Detection</h2>
+
+        <form method="POST">
+            <div class="field"><input name="avg_EAR" placeholder="Average EAR" required></div>
+            <div class="field"><input name="blink_rate" placeholder="Blink Rate (per min)" required></div>
+            <div class="field"><input name="avg_blink_duration" placeholder="Avg Blink Duration (sec)" required></div>
+            <div class="field"><input name="eye_closure_percentage" placeholder="Eye Closure %" required></div>
+            <div class="field"><input name="long_eye_closure_count" placeholder="Long Eye Closure Count" required></div>
+            <div class="field"><input name="head_nod_count" placeholder="Head Nod Count" required></div>
+            <div class="field"><input name="head_pitch_variance" placeholder="Head Pitch Variance" required></div>
+            <div class="field"><input name="perclos_30s" placeholder="PERCLOS (30s)" required></div>
+            <div class="field"><input name="max_eye_closure_duration" placeholder="Max Eye Closure Duration" required></div>
+            <div class="field"><input name="head_drop_events" placeholder="Head Drop Events" required></div>
+
+            <button type="submit">Predict Driver State</button>
+        </form>
+
+        {f'<div class="result {status_class}">{prediction}</div>' if prediction else ''}
+
+        <footer>ML-based Driver Monitoring System</footer>
+    </div>
+</body>
+</html>
+"""
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
