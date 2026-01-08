@@ -1,9 +1,11 @@
 from flask import Flask, request
 import numpy as np
 import joblib
+import os
 
 app = Flask(__name__)
 
+# Load model and scaler
 model = joblib.load("knn_fatigue_model.pkl")
 scaler = joblib.load("scaler.pkl")
 
@@ -88,27 +90,16 @@ def home():
                 font-size: 14px;
             }}
 
-            input:focus {{
-                outline: none;
-                border-color: #b8c4f0;
-                box-shadow: 0 0 0 2px rgba(184,196,240,0.3);
-            }}
-
             button {{
                 width: 100%;
                 padding: 12px;
                 margin-top: 10px;
                 background-color: #b8c4f0;
-                color: #2f2f2f;
                 border: none;
                 border-radius: 10px;
                 font-size: 15px;
                 font-weight: 600;
                 cursor: pointer;
-            }}
-
-            button:hover {{
-                background-color: #a7b5ec;
             }}
 
             .result {{
@@ -126,56 +117,16 @@ def home():
             <h2>Driver Fatigue Detection System</h2>
 
             <form method="POST">
-
-                <div class="form-group">
-                    <label>Average Eye Aspect Ratio (EAR)</label>
-                    <input name="avg_EAR" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Blink Rate (per minute)</label>
-                    <input name="blink_rate" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Average Blink Duration (seconds)</label>
-                    <input name="avg_blink_duration" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Eye Closure Percentage (%)</label>
-                    <input name="eye_closure_percentage" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Long Eye Closure Count</label>
-                    <input name="long_eye_closure_count" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Head Nod Count</label>
-                    <input name="head_nod_count" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Head Pitch Variance</label>
-                    <input name="head_pitch_variance" required>
-                </div>
-
-                <div class="form-group">
-                    <label>PERCLOS (last 30 seconds)</label>
-                    <input name="perclos_30s" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Maximum Eye Closure Duration (seconds)</label>
-                    <input name="max_eye_closure_duration" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Head Drop Events</label>
-                    <input name="head_drop_events" required>
-                </div>
+                <input name="avg_EAR" placeholder="Average EAR" required>
+                <input name="blink_rate" placeholder="Blink Rate" required>
+                <input name="avg_blink_duration" placeholder="Avg Blink Duration" required>
+                <input name="eye_closure_percentage" placeholder="Eye Closure %" required>
+                <input name="long_eye_closure_count" placeholder="Long Eye Closure Count" required>
+                <input name="head_nod_count" placeholder="Head Nod Count" required>
+                <input name="head_pitch_variance" placeholder="Head Pitch Variance" required>
+                <input name="perclos_30s" placeholder="PERCLOS (30s)" required>
+                <input name="max_eye_closure_duration" placeholder="Max Eye Closure Duration" required>
+                <input name="head_drop_events" placeholder="Head Drop Events" required>
 
                 <button type="submit">Predict Driver State</button>
             </form>
@@ -187,4 +138,5 @@ def home():
     """
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
