@@ -1,11 +1,11 @@
-from flask import Flask, request
+from flask import Flask, request, render_template_string
 import numpy as np
 import joblib
 
 app = Flask(__name__)
 
 # --------------------------------------------------
-# Load model and scaler trained with ALL features
+# Load model and scaler
 # --------------------------------------------------
 model = joblib.load("knn_fatigue_model_all_features.pkl")
 scaler = joblib.load("scaler_all_features.pkl")
@@ -30,9 +30,12 @@ FEATURE_NAMES = [
     "hand_near_mouth_flag"
 ]
 
+# --------------------------------------------------
+# MAIN ROUTE
+# --------------------------------------------------
 @app.route("/", methods=["GET", "POST"])
 def home():
-    prediction = ""
+    prediction = "Enter values and click Analyze"
 
     if request.method == "POST":
         try:
@@ -57,17 +60,15 @@ def home():
         except Exception as e:
             prediction = f"Input Error: {e}"
 
-    return f"""
+    return render_template_string("""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Driver Fatigue Detection System</title>
+    <title>Driver Fatigue Detection</title>
 
     <style>
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
@@ -91,7 +92,6 @@ def home():
             overflow: hidden;
         }
 
-        /* LEFT PANEL */
         .left-panel {
             padding: 50px 40px;
             background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02));
@@ -100,39 +100,30 @@ def home():
         .left-panel h1 {
             font-size: 36px;
             margin-bottom: 20px;
-            line-height: 1.3;
         }
 
         .left-panel p {
             font-size: 15px;
             color: #e0e0e0;
             line-height: 1.7;
-            margin-bottom: 30px;
         }
 
         .info-box {
             background: rgba(0, 0, 0, 0.25);
-            padding: 20px;
+            padding: 18px;
             border-radius: 14px;
-            margin-bottom: 18px;
+            margin-top: 14px;
             font-size: 14px;
         }
 
-        .info-box span {
-            font-weight: bold;
-            color: #8fd3f4;
-        }
-
-        /* RIGHT PANEL */
         .right-panel {
             padding: 40px 36px;
             background: rgba(0, 0, 0, 0.35);
         }
 
-        .right-panel h2 {
+        h2 {
             text-align: center;
             margin-bottom: 26px;
-            font-size: 26px;
         }
 
         form {
@@ -143,27 +134,14 @@ def home():
 
         label {
             font-size: 13px;
-            margin-bottom: 4px;
-            display: block;
             color: #cfdfff;
         }
 
         input {
             width: 100%;
-            padding: 10px 12px;
+            padding: 10px;
             border-radius: 8px;
             border: none;
-            font-size: 14px;
-            background: rgba(255,255,255,0.85);
-        }
-
-        input:focus {
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(143, 211, 244, 0.6);
-        }
-
-        .full-width {
-            grid-column: span 2;
         }
 
         button {
@@ -177,12 +155,6 @@ def home():
             cursor: pointer;
             background: linear-gradient(135deg, #8fd3f4, #84fab0);
             color: #0f2027;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(143, 211, 244, 0.5);
         }
 
         .result-box {
@@ -193,20 +165,12 @@ def home():
             font-size: 18px;
             font-weight: bold;
             background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(6px);
-        }
-
-        .footer-note {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 12px;
-            color: #cccccc;
         }
 
         @media (max-width: 1024px) {
             .main-card {
                 grid-template-columns: 1fr;
-                width: 92%;
+                width: 95%;
             }
         }
     </style>
@@ -216,108 +180,28 @@ def home():
 
 <div class="main-card">
 
-    <!-- LEFT INFORMATION PANEL -->
     <div class="left-panel">
-        <h1>AI-Based<br>Driver Fatigue<br>Detection</h1>
-
+        <h1>AI Driver<br>Fatigue Detection</h1>
         <p>
-            This system uses machine learning and behavioral analysis to
-            detect driver fatigue in real time by analyzing eye movement,
-            head posture, and facial activity patterns.
+            Machine learning based system that detects driver fatigue
+            using eye, head and mouth behaviour patterns.
         </p>
 
-        <div class="info-box">
-            <span>🧠 Model:</span> K-Nearest Neighbors (KNN)
-        </div>
-
-        <div class="info-box">
-            <span>📊 Features:</span> Eye, Head & Mouth Behaviour
-        </div>
-
-        <div class="info-box">
-            <span>🎯 Output:</span> Alert / Drowsy / Microsleep
-        </div>
-
-        <div class="info-box">
-            <span>🚗 Use Case:</span> Accident Prevention & Road Safety
-        </div>
+        <div class="info-box">🧠 Model: KNN</div>
+        <div class="info-box">📊 Inputs: 14 Behaviour Features</div>
+        <div class="info-box">🚗 Use: Road Safety</div>
     </div>
 
-    <!-- RIGHT FORM PANEL -->
     <div class="right-panel">
-        <h2>Driver Behaviour Input</h2>
+        <h2>Driver Inputs</h2>
 
         <form method="POST">
-
+            {% for f in features %}
             <div>
-                <label>Average EAR</label>
-                <input name="avg_EAR" required>
+                <label>{{ f }}</label>
+                <input name="{{ f }}" required>
             </div>
-
-            <div>
-                <label>Blink Rate</label>
-                <input name="blink_rate" required>
-            </div>
-
-            <div>
-                <label>Avg Blink Duration</label>
-                <input name="avg_blink_duration" required>
-            </div>
-
-            <div>
-                <label>Eye Closure %</label>
-                <input name="eye_closure_percentage" required>
-            </div>
-
-            <div>
-                <label>Long Eye Closures</label>
-                <input name="long_eye_closure_count" required>
-            </div>
-
-            <div>
-                <label>Head Nod Count</label>
-                <input name="head_nod_count" required>
-            </div>
-
-            <div>
-                <label>Head Pitch Variance</label>
-                <input name="head_pitch_variance" required>
-            </div>
-
-            <div>
-                <label>PERCLOS (30s)</label>
-                <input name="perclos_30s" required>
-            </div>
-
-            <div>
-                <label>Max Eye Closure Duration</label>
-                <input name="max_eye_closure_duration" required>
-            </div>
-
-            <div>
-                <label>Head Drop Events</label>
-                <input name="head_drop_events" required>
-            </div>
-
-            <div>
-                <label>Yawn Count</label>
-                <input name="yawn_count" required>
-            </div>
-
-            <div>
-                <label>Mouth Open Duration</label>
-                <input name="mouth_open_duration" required>
-            </div>
-
-            <div>
-                <label>Mouth Open Ratio</label>
-                <input name="mouth_open_ratio" required>
-            </div>
-
-            <div>
-                <label>Hand Near Mouth (0/1)</label>
-                <input name="hand_near_mouth_flag" required>
-            </div>
+            {% endfor %}
 
             <button type="submit">Analyze Driver State</button>
         </form>
@@ -325,18 +209,16 @@ def home():
         <div class="result-box">
             {{ prediction }}
         </div>
-
-        <div class="footer-note">
-            AI-Driven Road Safety System • Academic Project
-        </div>
     </div>
 
 </div>
 
 </body>
 </html>
+""", prediction=prediction, features=FEATURE_NAMES)
 
-"""
-
+# --------------------------------------------------
+# RUN SERVER
+# --------------------------------------------------
 if __name__ == "__main__":
     app.run(debug=True)
