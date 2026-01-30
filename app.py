@@ -1,176 +1,342 @@
 from flask import Flask, request
 import numpy as np
 import joblib
-import os
 
 app = Flask(__name__)
 
-model = joblib.load("knn_fatigue_model.pkl")
-scaler = joblib.load("scaler.pkl")
+# --------------------------------------------------
+# Load model and scaler trained with ALL features
+# --------------------------------------------------
+model = joblib.load("knn_fatigue_model_all_features.pkl")
+scaler = joblib.load("scaler_all_features.pkl")
+
+# --------------------------------------------------
+# EXACT feature order used during training
+# --------------------------------------------------
+FEATURE_NAMES = [
+    "avg_EAR",
+    "blink_rate",
+    "avg_blink_duration",
+    "eye_closure_percentage",
+    "long_eye_closure_count",
+    "head_nod_count",
+    "head_pitch_variance",
+    "perclos_30s",
+    "max_eye_closure_duration",
+    "head_drop_events",
+    "yawn_count",
+    "mouth_open_duration",
+    "mouth_open_ratio",
+    "hand_near_mouth_flag"
+]
 
 @app.route("/", methods=["GET", "POST"])
 def home():
     prediction = ""
-    status_class = ""
 
     if request.method == "POST":
-        values = [
-            float(request.form["avg_EAR"]),
-            float(request.form["blink_rate"]),
-            float(request.form["avg_blink_duration"]),
-            float(request.form["eye_closure_percentage"]),
-            float(request.form["long_eye_closure_count"]),
-            float(request.form["head_nod_count"]),
-            float(request.form["head_pitch_variance"]),
-            float(request.form["perclos_30s"]),
-            float(request.form["max_eye_closure_duration"]),
-            float(request.form["head_drop_events"])
-        ]
+        try:
+            # Collect inputs in SAME ORDER as training
+            values = [float(request.form[f]) for f in FEATURE_NAMES]
 
-        values = scaler.transform(np.array(values).reshape(1, -1))
-        result = model.predict(values)[0]
+            # Scale inputs
+            values_scaled = scaler.transform(
+                np.array(values).reshape(1, -1)
+            )
 
-        if result == 0:
-            prediction = "ALERT – Driver is attentive"
-            status_class = "safe"
-        elif result == 1:
-            prediction = "DROWSY – Driver needs rest"
-            status_class = "warning"
-        else:
-            prediction = "MICROSLEEP – Immediate action required"
-            status_class = "danger"
+            # Predict
+            result = model.predict(values_scaled)[0]
+
+            if result == 0:
+                prediction = "🟢 ALERT – Driver is Attentive"
+            elif result == 1:
+                prediction = "🟠 DROWSY – Driver Needs Rest"
+            else:
+                prediction = "🔴 MICROSLEEP – Immediate Action Required"
+
+        except Exception as e:
+            prediction = f"Input Error: {e}"
 
     return f"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Driver Fatigue Detection</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Fatigue Detection System</title>
 
     <style>
-        body {{
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
             margin: 0;
             min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             display: flex;
             justify-content: center;
             align-items: center;
-            background: linear-gradient(135deg, #eef2ff, #fdfbff);
-            font-family: 'Segoe UI', sans-serif;
-        }}
+            color: #ffffff;
+        }
 
-        .card {{
-            width: 420px;
-            background: rgba(255,255,255,0.85);
-            backdrop-filter: blur(12px);
-            padding: 36px;
-            border-radius: 18px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.08);
-        }}
+        .main-card {
+            width: 1100px;
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(14px);
+            border-radius: 22px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
+            display: grid;
+            grid-template-columns: 1fr 1.4fr;
+            overflow: hidden;
+        }
 
-        h2 {{
-            text-align: center;
-            margin-bottom: 28px;
-            color: #2e2e2e;
-        }}
+        /* LEFT PANEL */
+        .left-panel {
+            padding: 50px 40px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.15), rgba(255,255,255,0.02));
+        }
 
-        .field {{
-            margin-bottom: 14px;
-        }}
+        .left-panel h1 {
+            font-size: 36px;
+            margin-bottom: 20px;
+            line-height: 1.3;
+        }
 
-        input {{
-            width: 100%;
-            padding: 12px 14px;
-            border-radius: 10px;
-            border: 1px solid #d6d6d6;
-            font-size: 14px;
-            transition: all 0.2s ease;
-        }}
-
-        input:focus {{
-            outline: none;
-            border-color: #7b8cff;
-            box-shadow: 0 0 0 3px rgba(123,140,255,0.2);
-        }}
-
-        button {{
-            width: 100%;
-            margin-top: 16px;
-            padding: 14px;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: 600;
-            background: linear-gradient(135deg, #7b8cff, #a2b2ff);
-            color: #fff;
-            cursor: pointer;
-            transition: transform 0.15s ease;
-        }}
-
-        button:hover {{
-            transform: translateY(-2px);
-        }}
-
-        .result {{
-            margin-top: 22px;
-            padding: 14px;
-            border-radius: 12px;
-            text-align: center;
-            font-weight: 600;
+        .left-panel p {
             font-size: 15px;
-        }}
+            color: #e0e0e0;
+            line-height: 1.7;
+            margin-bottom: 30px;
+        }
 
-        .safe {{
-            background: #e7f8ee;
-            color: #1b7f45;
-        }}
+        .info-box {
+            background: rgba(0, 0, 0, 0.25);
+            padding: 20px;
+            border-radius: 14px;
+            margin-bottom: 18px;
+            font-size: 14px;
+        }
 
-        .warning {{
-            background: #fff5db;
-            color: #9c6b00;
-        }}
+        .info-box span {
+            font-weight: bold;
+            color: #8fd3f4;
+        }
 
-        .danger {{
-            background: #ffe3e3;
-            color: #b40000;
-        }}
+        /* RIGHT PANEL */
+        .right-panel {
+            padding: 40px 36px;
+            background: rgba(0, 0, 0, 0.35);
+        }
 
-        footer {{
-            margin-top: 18px;
+        .right-panel h2 {
             text-align: center;
+            margin-bottom: 26px;
+            font-size: 26px;
+        }
+
+        form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px 18px;
+        }
+
+        label {
+            font-size: 13px;
+            margin-bottom: 4px;
+            display: block;
+            color: #cfdfff;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 8px;
+            border: none;
+            font-size: 14px;
+            background: rgba(255,255,255,0.85);
+        }
+
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(143, 211, 244, 0.6);
+        }
+
+        .full-width {
+            grid-column: span 2;
+        }
+
+        button {
+            grid-column: span 2;
+            margin-top: 14px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 14px;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, #8fd3f4, #84fab0);
+            color: #0f2027;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(143, 211, 244, 0.5);
+        }
+
+        .result-box {
+            margin-top: 22px;
+            padding: 16px;
+            border-radius: 14px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(6px);
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 20px;
             font-size: 12px;
-            color: #777;
-        }}
+            color: #cccccc;
+        }
+
+        @media (max-width: 1024px) {
+            .main-card {
+                grid-template-columns: 1fr;
+                width: 92%;
+            }
+        }
     </style>
 </head>
 
 <body>
-    <div class="card">
-        <h2>🚗 Driver Fatigue Detection</h2>
+
+<div class="main-card">
+
+    <!-- LEFT INFORMATION PANEL -->
+    <div class="left-panel">
+        <h1>AI-Based<br>Driver Fatigue<br>Detection</h1>
+
+        <p>
+            This system uses machine learning and behavioral analysis to
+            detect driver fatigue in real time by analyzing eye movement,
+            head posture, and facial activity patterns.
+        </p>
+
+        <div class="info-box">
+            <span>🧠 Model:</span> K-Nearest Neighbors (KNN)
+        </div>
+
+        <div class="info-box">
+            <span>📊 Features:</span> Eye, Head & Mouth Behaviour
+        </div>
+
+        <div class="info-box">
+            <span>🎯 Output:</span> Alert / Drowsy / Microsleep
+        </div>
+
+        <div class="info-box">
+            <span>🚗 Use Case:</span> Accident Prevention & Road Safety
+        </div>
+    </div>
+
+    <!-- RIGHT FORM PANEL -->
+    <div class="right-panel">
+        <h2>Driver Behaviour Input</h2>
 
         <form method="POST">
-            <div class="field"><input name="avg_EAR" placeholder="Average EAR" required></div>
-            <div class="field"><input name="blink_rate" placeholder="Blink Rate (per min)" required></div>
-            <div class="field"><input name="avg_blink_duration" placeholder="Avg Blink Duration (sec)" required></div>
-            <div class="field"><input name="eye_closure_percentage" placeholder="Eye Closure %" required></div>
-            <div class="field"><input name="long_eye_closure_count" placeholder="Long Eye Closure Count" required></div>
-            <div class="field"><input name="head_nod_count" placeholder="Head Nod Count" required></div>
-            <div class="field"><input name="head_pitch_variance" placeholder="Head Pitch Variance" required></div>
-            <div class="field"><input name="perclos_30s" placeholder="PERCLOS (30s)" required></div>
-            <div class="field"><input name="max_eye_closure_duration" placeholder="Max Eye Closure Duration" required></div>
-            <div class="field"><input name="head_drop_events" placeholder="Head Drop Events" required></div>
 
-            <button type="submit">Predict Driver State</button>
+            <div>
+                <label>Average EAR</label>
+                <input name="avg_EAR" required>
+            </div>
+
+            <div>
+                <label>Blink Rate</label>
+                <input name="blink_rate" required>
+            </div>
+
+            <div>
+                <label>Avg Blink Duration</label>
+                <input name="avg_blink_duration" required>
+            </div>
+
+            <div>
+                <label>Eye Closure %</label>
+                <input name="eye_closure_percentage" required>
+            </div>
+
+            <div>
+                <label>Long Eye Closures</label>
+                <input name="long_eye_closure_count" required>
+            </div>
+
+            <div>
+                <label>Head Nod Count</label>
+                <input name="head_nod_count" required>
+            </div>
+
+            <div>
+                <label>Head Pitch Variance</label>
+                <input name="head_pitch_variance" required>
+            </div>
+
+            <div>
+                <label>PERCLOS (30s)</label>
+                <input name="perclos_30s" required>
+            </div>
+
+            <div>
+                <label>Max Eye Closure Duration</label>
+                <input name="max_eye_closure_duration" required>
+            </div>
+
+            <div>
+                <label>Head Drop Events</label>
+                <input name="head_drop_events" required>
+            </div>
+
+            <div>
+                <label>Yawn Count</label>
+                <input name="yawn_count" required>
+            </div>
+
+            <div>
+                <label>Mouth Open Duration</label>
+                <input name="mouth_open_duration" required>
+            </div>
+
+            <div>
+                <label>Mouth Open Ratio</label>
+                <input name="mouth_open_ratio" required>
+            </div>
+
+            <div>
+                <label>Hand Near Mouth (0/1)</label>
+                <input name="hand_near_mouth_flag" required>
+            </div>
+
+            <button type="submit">Analyze Driver State</button>
         </form>
 
-        {f'<div class="result {status_class}">{prediction}</div>' if prediction else ''}
+        <div class="result-box">
+            {{ prediction }}
+        </div>
 
-        <footer>ML-based Driver Monitoring System</footer>
+        <div class="footer-note">
+            AI-Driven Road Safety System • Academic Project
+        </div>
     </div>
+
+</div>
+
 </body>
 </html>
+
 """
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
